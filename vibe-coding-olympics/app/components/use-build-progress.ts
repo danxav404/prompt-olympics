@@ -1,24 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { BuildDuration, BuildProgress } from "./models";
+import type { BuildProgress } from "./models";
+import type { AgentRun } from "../agents/types";
 
-const stages = ["Reading the brief", "Plotting the UX", "Writing suspiciously fast code", "Making it look expensive", "Finding character-building bugs", "Preparing the victory lap"];
-const sprintDurationMs = 30000;
-
-/** Replace this clock with a real orchestration-progress subscription in Version 2. */
-export function useBuildProgress(duration: BuildDuration): BuildProgress {
-  const [elapsed, setElapsed] = useState(0);
+/** Adapts any local or remote orchestration run to the existing progress UI. */
+export function useBuildProgress(run: AgentRun): BuildProgress {
+  const [progress, setProgress] = useState(() => run.getSnapshot().progress);
 
   useEffect(() => {
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => setElapsed(Math.min(Date.now() - startedAt, sprintDurationMs)), 250);
-    return () => window.clearInterval(timer);
-  }, []);
+    setProgress(run.getSnapshot().progress);
+    return run.subscribe((event) => {
+      if (event.type === "progress") setProgress(event.payload);
+    });
+  }, [run]);
 
-  const percent = Math.round((elapsed / sprintDurationMs) * 100);
-  const stageIndex = Math.min(Math.floor((percent / 100) * stages.length), stages.length - 1);
-  const secondsRemaining = Math.max(0, Math.ceil((duration * 60) * (1 - elapsed / sprintDurationMs)));
-
-  return { percent, secondsRemaining, stage: stages[stageIndex], isComplete: percent >= 100 };
+  return progress;
 }

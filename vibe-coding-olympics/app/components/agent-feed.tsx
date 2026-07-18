@@ -1,31 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { AgentMessage, AgentRole } from "./models";
-import { simulatedAgentFeed } from "../services/simulated-agent-feed";
+import type { AgentMessage, AgentRole, AgentRun } from "../agents/types";
 
 const roleStyles: Record<AgentRole, { emoji: string; color: string }> = {
   Planner: { emoji: "🧠", color: "bg-[#e9e3ff]" }, Designer: { emoji: "🎨", color: "bg-[#ffe1ee]" }, Frontend: { emoji: "🧩", color: "bg-[#dbf9ef]" }, Backend: { emoji: "⚙️", color: "bg-[#fff0b5]" }, QA: { emoji: "🔎", color: "bg-[#dceaff]" }, Judge: { emoji: "🏅", color: "bg-[#ffe0bd]" },
 };
 
-export function AgentFeed({ prompt }: { prompt: string }) {
-  const [messages, setMessages] = useState<AgentMessage[]>(() => simulatedAgentFeed.initialMessages(prompt));
-  const sequence = useRef(0);
+export function AgentFeed({ run }: { run: AgentRun }) {
+  const [messages, setMessages] = useState<AgentMessage[]>(() => run.getSnapshot().messages);
+  const [isComplete, setIsComplete] = useState(() => run.getSnapshot().progress.isComplete);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      sequence.current += 1;
-      setMessages((current) => [...current.slice(-7), simulatedAgentFeed.nextMessage(prompt, sequence.current)]);
-    }, 2500);
-    return () => window.clearInterval(timer);
-  }, [prompt]);
+    setMessages(run.getSnapshot().messages);
+    setIsComplete(run.getSnapshot().progress.isComplete);
+    return run.subscribe((event) => {
+      if (event.type === "message") setMessages(run.getSnapshot().messages);
+      if (event.type === "progress") setIsComplete(event.payload.isComplete);
+    });
+  }, [run]);
 
   return <div className="max-h-[510px] min-h-[360px] space-y-3 overflow-y-auto p-4 [scrollbar-width:thin]">
     <AnimatePresence initial={false}>
       {messages.map((message) => <FeedMessage key={message.id} message={message} />)}
     </AnimatePresence>
-    <div className="flex items-center gap-2 px-2 pt-1 text-xs font-bold text-[#777186]"><span className="h-2 w-2 animate-pulse rounded-full bg-[#ff5fa2]" /> Agents are typing theatrically…</div>
+    <div className="flex items-center gap-2 px-2 pt-1 text-xs text-[#777186]"><span className={`h-2 w-2 rounded-full ${isComplete ? "bg-[#4d9c75]" : "animate-pulse bg-[#e36883]"}`} /> {isComplete ? "Build complete. The agents have left the arena." : "Agents are typing theatrically…"}</div>
   </div>;
 }
 
